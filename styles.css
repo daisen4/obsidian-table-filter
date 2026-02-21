@@ -32,6 +32,17 @@
     max-height: 70vh;
 }
 
+/* 編集モード用: border-collapse のみ CSS で指定、sticky は JS (translateY) で処理 */
+.table-filter-wrapper > table {
+    border-collapse: separate !important;
+    border-spacing: 0;
+}
+
+.table-filter-wrapper > table thead th {
+    border-top: 1px solid var(--background-modifier-border);
+    box-shadow: 0 2px 0 var(--background-modifier-border);
+}
+
 /* !important でテーマCSSの border-collapse: collapse を確実に上書き。
    border-collapse: collapse のままだと position: sticky が効かない。 */
 .table-filter-scroll table {
