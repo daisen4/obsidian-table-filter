@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-table-filter",
+  "name": "Table Filter",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Add real-time text filter inputs above Markdown tables.",
+  "author": "daisen4",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}

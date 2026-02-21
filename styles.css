@@ -1,0 +1,35 @@
+.table-filter-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 1em 0;
+}
+
+.table-filter-input {
+    width: 100%;
+    max-width: 360px;
+    padding: 4px 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s, 4px);
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.table-filter-input:focus {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb, 99, 102, 241), 0.15);
+}
+
+.table-filter-input::placeholder {
+    color: var(--text-muted);
+}
+
+.table-filter-wrapper thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--background-primary);
+    z-index: 1;
+}
