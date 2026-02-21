@@ -17,9 +17,13 @@ export default class TableFilterPlugin extends Plugin {
         input.placeholder = "Filter table...";
         input.addClass("table-filter-input");
 
+        const scroll = document.createElement("div");
+        scroll.addClass("table-filter-scroll");
+
         table.parentElement?.insertBefore(wrapper, table);
         wrapper.appendChild(input);
-        wrapper.appendChild(table);
+        scroll.appendChild(table);
+        wrapper.appendChild(scroll);
 
         input.addEventListener("input", () =>
             this.filterTable(table, input.value)
