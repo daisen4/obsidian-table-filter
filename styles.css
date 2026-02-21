@@ -27,15 +27,15 @@
     color: var(--text-muted);
 }
 
-/* テーブル専用のスクロールコンテナ — ここを基準に sticky が効く */
 .table-filter-scroll {
     overflow-y: auto;
     max-height: 70vh;
 }
 
-/* border-collapse: collapse だと position: sticky が効かないため separate に上書き */
+/* !important でテーマCSSの border-collapse: collapse を確実に上書き。
+   border-collapse: collapse のままだと position: sticky が効かない。 */
 .table-filter-scroll table {
-    border-collapse: separate;
+    border-collapse: separate !important;
     border-spacing: 0;
 }
 
@@ -53,7 +53,8 @@
 .table-filter-scroll thead th {
     position: sticky;
     top: 0;
-    background-color: var(--background-primary);
-    z-index: 1;
+    background: var(--table-header-background, var(--background-primary)) !important;
+    z-index: 10;
     border-top: 1px solid var(--background-modifier-border);
+    box-shadow: 0 2px 0 var(--background-modifier-border);
 }

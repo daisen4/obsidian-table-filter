@@ -25,9 +25,35 @@ export default class TableFilterPlugin extends Plugin {
         scroll.appendChild(table);
         wrapper.appendChild(scroll);
 
+        // DOMへの挿入・スタイル計算が完了してから背景色を取得して適用
+        requestAnimationFrame(() => {
+            const thead = table.querySelector<HTMLElement>("thead");
+            if (!thead) return;
+
+            // 透明でない最初の祖先要素の背景色を取得
+            const bg = this.getEffectiveBg(scroll);
+            thead.querySelectorAll<HTMLElement>("th").forEach((th) => {
+                // inline style + important でテーマCSSのどんな指定にも勝つ
+                th.style.setProperty("background-color", bg, "important");
+            });
+        });
+
         input.addEventListener("input", () =>
             this.filterTable(table, input.value)
         );
+    }
+
+    /** DOM ツリーを上に辿り、最初の不透明な背景色を返す */
+    private getEffectiveBg(el: Element): string {
+        let node: Element | null = el;
+        while (node) {
+            const bg = window.getComputedStyle(node).backgroundColor;
+            if (bg && bg !== "rgba(0, 0, 0, 0)") {
+                return bg;
+            }
+            node = node.parentElement;
+        }
+        return "var(--background-primary)";
     }
 
     private filterTable(table: HTMLTableElement, query: string): void {
