@@ -1,6 +1,15 @@
 import { Plugin } from "obsidian";
 import { EditorView } from "@codemirror/view";
 
+type NumericOp = ">=" | "<=" | "=" | ">" | "<";
+
+interface ColumnFilter {
+    type: "text" | "numeric";
+    text?: string;
+    op?: NumericOp;
+    num?: number | null;
+}
+
 export default class TableFilterPlugin extends Plugin {
     onload(): void {
         // 閲覧モード
@@ -24,7 +33,6 @@ export default class TableFilterPlugin extends Plugin {
     }
 
     onunload(): void {
-        // プラグイン無効化時に body に追加した overlay を全て削除
         document.querySelectorAll(".table-filter-header-overlay")
             .forEach((el) => el.remove());
     }
@@ -35,16 +43,10 @@ export default class TableFilterPlugin extends Plugin {
         const wrapper = document.createElement("div");
         wrapper.addClass("table-filter-wrapper");
 
-        const input = document.createElement("input");
-        input.type = "text";
-        input.placeholder = "Filter table...";
-        input.addClass("table-filter-input");
-
         const scroll = document.createElement("div");
         scroll.addClass("table-filter-scroll");
 
         table.parentElement?.insertBefore(wrapper, table);
-        wrapper.appendChild(input);
         scroll.appendChild(table);
         wrapper.appendChild(scroll);
 
@@ -52,34 +54,23 @@ export default class TableFilterPlugin extends Plugin {
             const thead = table.querySelector<HTMLElement>("thead");
             if (!thead) return;
             const bg = this.getEffectiveBg(scroll);
-            thead.querySelectorAll<HTMLElement>("th").forEach((th) => {
+            const ths = Array.from(thead.querySelectorAll<HTMLElement>("th"));
+            const filters: ColumnFilter[] = ths.map(() => ({ type: "text" }));
+
+            ths.forEach((th, colIndex) => {
                 th.style.setProperty("background", bg, "important");
+                this.attachColumnFilter(th, colIndex, table, filters, bg);
             });
         });
-
-        input.addEventListener("input", () =>
-            this.filterTable(table, input.value)
-        );
     }
 
     // ── 編集モード ─────────────────────────────────────────
 
-    /**
-     * CodeMirror 内は overflow:hidden により CSS sticky / 絶対配置が機能しない。
-     * thead を document.body に position:fixed でオーバーレイし、
-     * スクロール時のみ表示することでヘッダー固定を実現する。
-     */
     private addFilterToTableEditor(table: HTMLTableElement): void {
         const wrapper = document.createElement("div");
         wrapper.addClass("table-filter-wrapper");
 
-        const input = document.createElement("input");
-        input.type = "text";
-        input.placeholder = "Filter table...";
-        input.addClass("table-filter-input");
-
         table.parentElement?.insertBefore(wrapper, table);
-        wrapper.appendChild(input);
         wrapper.appendChild(table);
 
         requestAnimationFrame(() => {
@@ -89,19 +80,21 @@ export default class TableFilterPlugin extends Plugin {
             if (!scroller) return;
 
             const bg = this.getEffectiveBg(wrapper);
+            const ths = Array.from(thead.querySelectorAll<HTMLElement>("th"));
+            const filters: ColumnFilter[] = ths.map(() => ({ type: "text" }));
 
-            // position:fixed overlay を body に追加（overflow の影響を受けない）
+            // position:fixed overlay を body に追加
             const overlay = document.createElement("div");
             overlay.addClass("table-filter-header-overlay");
             overlay.style.position    = "fixed";
             overlay.style.zIndex      = "9999";
             overlay.style.overflow    = "hidden";
-            overlay.style.pointerEvents = "none"; // エディタ操作を邪魔しない
+            overlay.style.pointerEvents = "auto";
             overlay.style.display     = "none";
             overlay.style.setProperty("background", bg, "important");
             document.body.appendChild(overlay);
 
-            // overlay 内容を构築
+            // overlay 内容を構築
             const buildOverlay = () => {
                 overlay.empty();
                 const miniTable = document.createElement("table");
@@ -118,10 +111,19 @@ export default class TableFilterPlugin extends Plugin {
                     cloneThs[i].style.width     = `${th.offsetWidth}px`;
                     cloneThs[i].style.boxSizing = "border-box";
                     cloneThs[i].style.boxShadow = "0 2px 0 var(--background-modifier-border)";
+                    // 列フィルターを overlay の th にも付ける
+                    this.attachColumnFilter(cloneThs[i], i, table, filters, bg);
                 });
                 miniTable.appendChild(clonedThead);
                 overlay.appendChild(miniTable);
             };
+
+            // 元の th にも列フィルターを付ける（スクロールしていないとき見える）
+            ths.forEach((th, i) => {
+                th.style.setProperty("background", bg, "important");
+                this.attachColumnFilter(th, i, table, filters, bg);
+            });
+
             buildOverlay();
 
             // スクロールに応じて overlay の表示・位置を更新
@@ -150,15 +152,12 @@ export default class TableFilterPlugin extends Plugin {
 
             scroller.addEventListener("scroll", updateOverlay, { passive: true });
 
-            // table リサイズ時に再構築
             new ResizeObserver(() => { buildOverlay(); updateOverlay(); })
                 .observe(table);
 
-            // CodeMirror が thead を再描画したとき内容を同期
             new MutationObserver(buildOverlay)
                 .observe(thead, { childList: true, subtree: true });
 
-            // table が DOM から外れたら overlay を削除
             const cleanupObs = new MutationObserver(() => {
                 if (!table.isConnected) {
                     overlay.remove();
@@ -171,10 +170,188 @@ export default class TableFilterPlugin extends Plugin {
 
             updateOverlay();
         });
+    }
 
-        input.addEventListener("input", () =>
-            this.filterTable(table, input.value)
-        );
+    // ── 列フィルター UI ─────────────────────────────────────
+
+    private attachColumnFilter(
+        th: HTMLElement,
+        colIndex: number,
+        table: HTMLTableElement,
+        filters: ColumnFilter[],
+        bg: string
+    ): void {
+        // 既に付いていたら二重付けしない
+        if (th.querySelector(".tf-btn")) return;
+
+        // th のレイアウト調整
+        th.style.position = "relative";
+        th.style.paddingRight = "22px";
+        th.style.whiteSpace = "nowrap";
+
+        const isNumeric = this.isNumericColumn(table, colIndex);
+        filters[colIndex] = { type: isNumeric ? "numeric" : "text" };
+
+        // ▼ ボタン
+        const btn = document.createElement("span");
+        btn.addClass("tf-btn");
+        btn.textContent = "▼";
+        th.appendChild(btn);
+
+        // ドロップダウンパネル
+        const panel = document.createElement("div");
+        panel.addClass("tf-panel");
+        panel.style.setProperty("background", bg, "important");
+        panel.style.display = "none";
+        document.body.appendChild(panel);
+
+        if (isNumeric) {
+            this.buildNumericPanel(panel, colIndex, table, filters);
+        } else {
+            this.buildTextPanel(panel, colIndex, table, filters);
+        }
+
+        // ボタンクリックでパネル開閉
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = panel.style.display !== "none";
+            // 他のパネルを全て閉じる
+            document.querySelectorAll<HTMLElement>(".tf-panel").forEach(p => {
+                p.style.display = "none";
+            });
+            if (!isOpen) {
+                const rect = btn.getBoundingClientRect();
+                panel.style.display = "block";
+                panel.style.top  = `${rect.bottom + 4}px`;
+                panel.style.left = `${rect.left}px`;
+            }
+        });
+
+        // パネル外クリックで閉じる（一度だけ登録）
+        document.addEventListener("click", () => {
+            panel.style.display = "none";
+        });
+    }
+
+    private buildTextPanel(
+        panel: HTMLElement,
+        colIndex: number,
+        table: HTMLTableElement,
+        filters: ColumnFilter[]
+    ): void {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "絞り込み...";
+        input.addClass("tf-text-input");
+        panel.appendChild(input);
+
+        input.addEventListener("click", (e) => e.stopPropagation());
+        input.addEventListener("input", () => {
+            filters[colIndex] = { type: "text", text: input.value };
+            this.applyFilters(table, filters);
+        });
+    }
+
+    private buildNumericPanel(
+        panel: HTMLElement,
+        colIndex: number,
+        table: HTMLTableElement,
+        filters: ColumnFilter[]
+    ): void {
+        const row = document.createElement("div");
+        row.addClass("tf-numeric-row");
+
+        const select = document.createElement("select");
+        select.addClass("tf-op-select");
+        const ops: { label: string; value: NumericOp }[] = [
+            { label: "≥", value: ">=" },
+            { label: "≤", value: "<=" },
+            { label: "=", value: "=" },
+            { label: ">", value: ">" },
+            { label: "<", value: "<" },
+        ];
+        ops.forEach(({ label, value }) => {
+            const opt = document.createElement("option");
+            opt.value = value;
+            opt.textContent = label;
+            select.appendChild(opt);
+        });
+
+        const input = document.createElement("input");
+        input.type = "number";
+        input.placeholder = "数値";
+        input.addClass("tf-num-input");
+
+        row.appendChild(select);
+        row.appendChild(input);
+        panel.appendChild(row);
+
+        const apply = () => {
+            const val = input.value.trim();
+            filters[colIndex] = {
+                type: "numeric",
+                op: select.value as NumericOp,
+                num: val !== "" ? parseFloat(val) : null,
+            };
+            this.applyFilters(table, filters);
+        };
+
+        select.addEventListener("click", (e) => e.stopPropagation());
+        select.addEventListener("change", apply);
+        input.addEventListener("click", (e) => e.stopPropagation());
+        input.addEventListener("input", apply);
+    }
+
+    // ── フィルター適用 ──────────────────────────────────────
+
+    private applyFilters(table: HTMLTableElement, filters: ColumnFilter[]): void {
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        tbody.querySelectorAll<HTMLTableRowElement>("tr").forEach((row) => {
+            const cells = Array.from(row.querySelectorAll("td"));
+            const visible = filters.every((filter, colIndex) => {
+                const cell = cells[colIndex];
+                if (!cell) return true;
+                const cellText = (cell.textContent ?? "").trim();
+
+                if (filter.type === "text") {
+                    const q = (filter.text ?? "").trim().toLowerCase();
+                    if (!q) return true;
+                    return cellText.toLowerCase().includes(q);
+                } else {
+                    // numeric
+                    if (filter.num === null || filter.num === undefined) return true;
+                    const cellNum = parseFloat(cellText);
+                    if (isNaN(cellNum)) return true;
+                    switch (filter.op) {
+                        case ">=": return cellNum >= filter.num;
+                        case "<=": return cellNum <= filter.num;
+                        case "=":  return cellNum === filter.num;
+                        case ">":  return cellNum >  filter.num;
+                        case "<":  return cellNum <  filter.num;
+                        default:   return true;
+                    }
+                }
+            });
+            row.style.display = visible ? "" : "none";
+        });
+    }
+
+    // ── 列型判定 ────────────────────────────────────────────
+
+    private isNumericColumn(table: HTMLTableElement, colIndex: number): boolean {
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return false;
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        const nonEmpty = rows
+            .map((row) => {
+                const cell = row.querySelectorAll("td")[colIndex];
+                return (cell?.textContent ?? "").trim();
+            })
+            .filter((v) => v !== "");
+        if (nonEmpty.length === 0) return false;
+        return nonEmpty.every((v) => !isNaN(parseFloat(v)) && isFinite(Number(v)));
     }
 
     // ── 共通ユーティリティ ──────────────────────────────────
@@ -196,20 +373,5 @@ export default class TableFilterPlugin extends Plugin {
         const resolved = window.getComputedStyle(probe).backgroundColor;
         document.body.removeChild(probe);
         return resolved !== "rgba(0, 0, 0, 0)" ? resolved : "#1a1a1a";
-    }
-
-    private filterTable(table: HTMLTableElement, query: string): void {
-        const q = query.trim().toLowerCase();
-        table
-            .querySelector("tbody")
-            ?.querySelectorAll<HTMLTableRowElement>("tr")
-            .forEach((row) => {
-                if (!q) { row.style.display = ""; return; }
-                const text = Array.from(row.querySelectorAll("td"))
-                    .map((c) => c.textContent ?? "")
-                    .join(" ")
-                    .toLowerCase();
-                row.style.display = text.includes(q) ? "" : "none";
-            });
     }
 }

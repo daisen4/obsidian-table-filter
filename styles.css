@@ -1,30 +1,7 @@
 .table-filter-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 6px;
     margin: 1em 0;
-}
-
-.table-filter-input {
-    width: 100%;
-    max-width: 360px;
-    padding: 4px 10px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-s, 4px);
-    background-color: var(--background-primary);
-    color: var(--text-normal);
-    font-size: var(--font-ui-small);
-    outline: none;
-    transition: border-color 0.15s ease;
-}
-
-.table-filter-input:focus {
-    border-color: var(--interactive-accent);
-    box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb, 99, 102, 241), 0.15);
-}
-
-.table-filter-input::placeholder {
-    color: var(--text-muted);
 }
 
 .table-filter-scroll {
@@ -32,19 +9,95 @@
     max-height: 70vh;
 }
 
-/* 編集モード用: border-collapse のみ CSS で指定、sticky は JS (translateY) で処理 */
-.table-filter-wrapper > table {
-    border-collapse: separate !important;
-    border-spacing: 0;
+/* ─── 列フィルター: ▼ボタン ─────────────────────────── */
+
+.tf-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-muted);
+    user-select: none;
+    padding: 2px 3px;
+    border-radius: 3px;
+    transition: background 0.1s, color 0.1s;
 }
 
-.table-filter-wrapper > table thead th {
-    border-top: 1px solid var(--background-modifier-border);
-    box-shadow: 0 2px 0 var(--background-modifier-border);
+.tf-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
 }
 
-/* !important でテーマCSSの border-collapse: collapse を確実に上書き。
-   border-collapse: collapse のままだと position: sticky が効かない。 */
+/* ─── 列フィルター: ドロップダウンパネル ──────────────── */
+
+.tf-panel {
+    position: fixed;
+    z-index: 10000;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s, 4px);
+    padding: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 160px;
+}
+
+.tf-text-input {
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s, 4px);
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+    outline: none;
+    box-sizing: border-box;
+}
+
+.tf-text-input:focus {
+    border-color: var(--interactive-accent);
+}
+
+.tf-numeric-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.tf-op-select {
+    padding: 4px 4px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s, 4px);
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+    cursor: pointer;
+    outline: none;
+    flex-shrink: 0;
+}
+
+.tf-num-input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s, 4px);
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+    outline: none;
+    box-sizing: border-box;
+}
+
+.tf-num-input:focus,
+.tf-op-select:focus {
+    border-color: var(--interactive-accent);
+}
+
+/* ─── テーブル共通: border-collapse override ─────────── */
+
+/* border-collapse: collapse のままだと position: sticky が効かない */
 .table-filter-scroll table {
     border-collapse: separate !important;
     border-spacing: 0;
@@ -66,6 +119,17 @@
     top: 0;
     background: var(--table-header-background, var(--background-primary)) !important;
     z-index: 10;
+    border-top: 1px solid var(--background-modifier-border);
+    box-shadow: 0 2px 0 var(--background-modifier-border);
+}
+
+/* 編集モード用 */
+.table-filter-wrapper > table {
+    border-collapse: separate !important;
+    border-spacing: 0;
+}
+
+.table-filter-wrapper > table thead th {
     border-top: 1px solid var(--background-modifier-border);
     box-shadow: 0 2px 0 var(--background-modifier-border);
 }
