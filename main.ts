@@ -20,7 +20,16 @@ export default class TableFilterPlugin extends Plugin {
                 update.view.dom
                     .querySelectorAll<HTMLTableElement>("table")
                     .forEach((table) => {
-                        if (table.closest(".table-filter-wrapper")) return;
+                        if (table.closest(".table-filter-wrapper")) {
+                            // CodeMirror が tbody を再描画するとフィルターが消えるので再適用
+                            if (update.docChanged) {
+                                const f = (table as any).__tfFilters as ColumnFilter[] | undefined;
+                                if (f && f.some((fi) => fi.selected.size > 0)) {
+                                    this.applyFilters(table, f);
+                                }
+                            }
+                            return;
+                        }
                         this.addFilterToTableEditor(table);
                     });
             })
@@ -79,6 +88,8 @@ export default class TableFilterPlugin extends Plugin {
             const bg = this.getEffectiveBg(wrapper);
             const ths = Array.from(thead.querySelectorAll<HTMLElement>("th"));
             const filters: ColumnFilter[] = ths.map(() => ({ selected: new Set<string>() }));
+            // docChanged 時に再適用できるようテーブル要素に紐づける
+            (table as any).__tfFilters = filters;
 
             // position:fixed overlay を body に追加
             const overlay = document.createElement("div");
@@ -211,6 +222,9 @@ export default class TableFilterPlugin extends Plugin {
         document.body.appendChild(panel);
 
         this.buildCheckboxPanel(panel, colIndex, table, filters, btn);
+
+        // パネル内のクリックは document に伝播させない（パネルが即閉じる問題を防ぐ）
+        panel.addEventListener("click", (e) => e.stopPropagation());
 
         // ボタンクリックで開閉
         btn.addEventListener("click", (e) => {
