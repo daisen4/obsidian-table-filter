@@ -9,7 +9,7 @@
     max-height: 70vh;
 }
 
-/* ─── 列フィルター: ▼ボタン ─────────────────────────── */
+/* ─── ▼ ボタン ───────────────────────────────────────── */
 
 .tf-btn {
     position: absolute;
@@ -31,7 +31,13 @@
     color: var(--text-normal);
 }
 
-/* ─── 列フィルター: ドロップダウンパネル ──────────────── */
+/* フィルター適用中はアクセントカラー */
+.tf-btn--active {
+    color: var(--interactive-accent);
+    font-weight: bold;
+}
+
+/* ─── ドロップダウンパネル ────────────────────────────── */
 
 .tf-panel {
     position: fixed;
@@ -40,10 +46,15 @@
     border-radius: var(--radius-s, 4px);
     padding: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    min-width: 160px;
+    min-width: 180px;
+    max-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
-.tf-text-input {
+/* 検索入力 */
+.tf-search-input {
     width: 100%;
     padding: 4px 8px;
     border: 1px solid var(--background-modifier-border);
@@ -55,49 +66,71 @@
     box-sizing: border-box;
 }
 
-.tf-text-input:focus {
+.tf-search-input:focus {
     border-color: var(--interactive-accent);
 }
 
-.tf-numeric-row {
+/* 全選択 / 全解除 ボタン行 */
+.tf-action-row {
     display: flex;
     gap: 6px;
-    align-items: center;
 }
 
-.tf-op-select {
-    padding: 4px 4px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-s, 4px);
-    background: var(--background-primary);
-    color: var(--text-normal);
-    font-size: var(--font-ui-small);
-    cursor: pointer;
-    outline: none;
-    flex-shrink: 0;
-}
-
-.tf-num-input {
+.tf-action-btn {
     flex: 1;
-    min-width: 0;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-s, 4px);
-    background: var(--background-primary);
+    background: var(--background-secondary);
     color: var(--text-normal);
+    font-size: var(--font-ui-smaller);
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.tf-action-btn:hover {
+    background: var(--background-modifier-hover);
+}
+
+/* チェックボックスリスト */
+.tf-checkbox-list {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tf-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: 3px;
+    cursor: pointer;
     font-size: var(--font-ui-small);
-    outline: none;
-    box-sizing: border-box;
+    color: var(--text-normal);
+    user-select: none;
 }
 
-.tf-num-input:focus,
-.tf-op-select:focus {
-    border-color: var(--interactive-accent);
+.tf-checkbox-item:hover {
+    background: var(--background-modifier-hover);
 }
 
-/* ─── テーブル共通: border-collapse override ─────────── */
+.tf-checkbox-item input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--interactive-accent);
+}
 
-/* border-collapse: collapse のままだと position: sticky が効かない */
+.tf-checkbox-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─── テーブル共通 ────────────────────────────────────── */
+
 .table-filter-scroll table {
     border-collapse: separate !important;
     border-spacing: 0;
